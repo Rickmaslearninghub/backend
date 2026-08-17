@@ -27,7 +27,9 @@ const googleClient = new OAuth2Client({
 const allowedOrigins = [
   FRONTEND_URL,
   ADMIN_URL,
+  'https://rmcodelab-frontend.vercel.app',
   'https://free-one-navy.vercel.app',
+  'https://admin-alpha-eight-54.vercel.app', // Link rasmi ya Admin Site kwenye Vercel
   'http://localhost:3000',
   'http://localhost:3001',
   'http://localhost:4321'
