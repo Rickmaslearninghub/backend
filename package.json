@@ -3,12 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-"scripts": {
-  "dev": "tsx watch src/server.ts",
-  "build": "npx prisma generate && tsc -p tsconfig.json",
-  "postinstall": "npx prisma generate",
-  "start": "node dist/server.js"
-}
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "npx prisma generate && tsc -p tsconfig.json",
+    "postinstall": "npx prisma generate",
+    "start": "node dist/server.js"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
