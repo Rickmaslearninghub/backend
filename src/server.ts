@@ -11,18 +11,41 @@ dotenv.config();
 const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 5000;
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
+
+// Dynamic Environment URLs
+const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 const ADMIN_URL = process.env.ADMIN_URL || 'http://localhost:3001';
+
 const googleClient = new OAuth2Client({
   clientId: process.env.GOOGLE_CLIENT_ID,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
   redirectUri: `${BACKEND_URL}/api/auth/google/callback`
 });
 
-// The dashboard runs on a separate Next.js app (port 3001 in development), so
-// it must be an allowed browser origin as well as the public website.
-app.use(cors({ origin: [FRONTEND_URL, ADMIN_URL], credentials: true }));
+// Dynamic CORS configuration to support local development & production deployment
+const allowedOrigins = [
+  FRONTEND_URL,
+  ADMIN_URL,
+  'https://free-one-navy.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:4321'
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('CORS policy violation: Origin not allowed'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json());
 
 const getYouTubeVideoId = (value: unknown) => {
@@ -93,6 +116,9 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 app.get('/api/auth/google', (_req, res) => {
+  if (!process.env.GOOGLE_CLIENT_ID) {
+    return res.status(500).json({ message: 'Google OAuth is not configured on server.' });
+  }
   const authorizeUrl = googleClient.generateAuthUrl({
     access_type: 'offline',
     prompt: 'consent',
@@ -139,7 +165,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
     res.cookie('rmcodelab_token', token, {
       httpOnly: true,
       secure: BACKEND_URL.startsWith('https'),
-      sameSite: 'lax',
+      sameSite: BACKEND_URL.startsWith('https') ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
@@ -150,18 +176,30 @@ app.get('/api/auth/google/callback', async (req, res) => {
 });
 
 app.get('/api/courses', async (_req, res) => {
-  const courses = await prisma.course.findMany({ orderBy: { createdAt: 'desc' } });
-  res.json(courses);
+  try {
+    const courses = await prisma.course.findMany({ orderBy: { createdAt: 'desc' } });
+    res.json(courses);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch courses', error });
+  }
 });
 
 app.get('/api/news', async (_req, res) => {
-  const news = await prisma.newsItem.findMany({ orderBy: { createdAt: 'desc' } });
-  res.json(news);
+  try {
+    const news = await prisma.newsItem.findMany({ orderBy: { createdAt: 'desc' } });
+    res.json(news);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch news', error });
+  }
 });
 
 app.get('/api/ai', async (_req, res) => {
-  const config = await prisma.aIConfig.findFirst();
-  res.json(config || { isEnabled: true, personality: 'Helpful and encouraging', knowledge: 'Use the academy curriculum.' });
+  try {
+    const config = await prisma.aIConfig.findFirst();
+    res.json(config || { isEnabled: true, personality: 'Helpful and encouraging', knowledge: 'Use the academy curriculum.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch AI config', error });
+  }
 });
 
 // Video Management Endpoints
@@ -204,7 +242,7 @@ app.get('/api/admin/videos', async (_req, res) => {
 app.post('/api/admin/videos', async (req, res) => {
   try {
     const { title, description, youtubeUrl, level, category, isPublished } = req.body;
-    
+
     const youtubeId = getYouTubeVideoId(youtubeUrl);
     if (!title?.trim() || !youtubeId) {
       return res.status(400).json({ message: 'A title and a valid YouTube video link are required.' });
@@ -265,34 +303,12 @@ app.delete('/api/admin/videos/:id', async (req, res) => {
   }
 });
 
-// Simple health check for required OAuth environment
 if (!process.env.GOOGLE_CLIENT_ID) {
   console.warn('WARNING: GOOGLE_CLIENT_ID is not set. Google OAuth will fail until configured.');
 } else {
   console.log('Google OAuth client ID loaded.');
 }
 
-// Attempt to listen, and if the port is in use, try the next port up to a limit.
-function attemptListen(port: number, retries = 5) {
-  const server = app.listen(port, () => {
-    console.log(`API listening on http://localhost:${port}`);
-  });
-
-  server.on('error', (err: any) => {
-    if (err && err.code === 'EADDRINUSE') {
-      console.error(`Port ${port} is already in use.`);
-      if (retries > 0) {
-        const next = port + 1;
-        console.log(`Retrying with port ${next} (${retries - 1} retries left)...`);
-        setTimeout(() => attemptListen(next, retries - 1), 500);
-        return;
-      }
-      console.error('No available ports found; please free the port or set a different PORT in backend/.env');
-      process.exit(1);
-    }
-    console.error('Server error', err);
-    process.exit(1);
-  });
-}
-
-attemptListen(Number(PORT));
+app.listen(Number(PORT), '0.0.0.0', () => {
+  console.log(`API listening on port ${PORT}`);
+});
