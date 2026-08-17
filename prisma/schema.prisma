@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  passwordHash  String?
+  googleId      String?   @unique
+  role          String    @default("student")
+  isVerified    Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  purchases     Purchase[]
+  donations     Donation[]
+}
+
+model Course {
+  id          String      @id @default(cuid())
+  title       String
+  slug        String      @unique
+  category    String
+  level       String
+  price       Int         @default(0)
+  description String
+  isPublished Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  purchases   Purchase[]
+}
+
+model Purchase {
+  id            String   @id @default(cuid())
+  userId        String
+  courseId      String
+  amount        Int
+  status        String   @default("pending")
+  paymentRef    String?
+  createdAt     DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id])
+  course        Course   @relation(fields: [courseId], references: [id])
+}
+
+model Donation {
+  id            String   @id @default(cuid())
+  userId        String?
+  amount        Int
+  status        String   @default("pending")
+  paymentRef    String?
+  createdAt     DateTime @default(now())
+  user          User?    @relation(fields: [userId], references: [id])
+}
+
+model NewsItem {
+  id          String   @id @default(cuid())
+  title       String
+  content     String
+  type        String
+  published   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model FAQ {
+  id          String   @id @default(cuid())
+  question    String
+  answer      String
+  createdAt   DateTime @default(now())
+}
+
+model AIConfig {
+  id          String   @id @default(cuid())
+  isEnabled   Boolean  @default(true)
+  personality String   @default("Helpful, concise, and encouraging")
+  knowledge   String   @default("Use the academy curriculum and encourage students to keep learning.")
+  updatedAt   DateTime @updatedAt
+}
+
+model Video {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  youtubeUrl  String
+  level       String   @default("Beginner")
+  category    String   @default("General")
+  isPublished Boolean  @default(true)
+  views       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
